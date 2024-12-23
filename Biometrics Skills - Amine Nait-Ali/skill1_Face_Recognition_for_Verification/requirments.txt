@@ -1,0 +1,5 @@
+Python 3.6+
+OpenCV (cv2)
+TensorFlow
+PyQt5
+NumPy
