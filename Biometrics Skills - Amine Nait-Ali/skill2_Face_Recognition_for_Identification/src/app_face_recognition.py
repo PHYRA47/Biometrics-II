@@ -378,8 +378,6 @@ class FaceRecognitionApp(QMainWindow):
         
         return known_face_encodings, known_face_names
 
-    # ...existing code...
-
     def load_enrolled_faces(self):
         try:
             conn = mysql.connector.connect(**self.db_config)
@@ -423,15 +421,12 @@ class FaceRecognitionApp(QMainWindow):
         except Error as e:
             QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
 
-    # ...existing code...
+# def main():
+#     app = QApplication(sys.argv)
+#     app.setStyle('Fusion')  # Modern style
+#     window = FaceRecognitionApp()
+#     window.show()
+#     sys.exit(app.exec())
 
-
-def main():
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Modern style
-    window = FaceRecognitionApp()
-    window.show()
-    sys.exit(app.exec())
-
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
