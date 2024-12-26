@@ -62,14 +62,18 @@ class FaceRecognitionApp(QMainWindow):
         self.image_tab = QWidget()
         self.webcam_tab = QWidget()
         
-        self.tabs.addTab(self.enrollment_tab, "Enrollment")
-        self.tabs.addTab(self.image_tab, "Image Recognition")
+        # Add tabs to the tab widget
+        # self.tabs.addTab(self.enrollment_tab, "Enrollment")
+        # self.tabs.addTab(self.image_tab, "Image Recognition")
         self.tabs.addTab(self.webcam_tab, "Real-time Recognition")
         
-        self.setup_enrollment_tab()
-        self.setup_image_tab()
+        # Setup tabs
+        # self.setup_enrollment_tab()
+        # self.setup_image_tab()
         self.setup_webcam_tab()
     
+    # <----------------------- Enrollment Tab --------------------->
+    """
     def setup_enrollment_tab(self):
         layout = QVBoxLayout(self.enrollment_tab)
         
@@ -120,65 +124,7 @@ class FaceRecognitionApp(QMainWindow):
         
         # Load enrolled faces
         self.load_enrolled_faces()   
-    
-    def setup_image_tab(self):
-        layout = QVBoxLayout(self.image_tab)
-        
-        # Model selector
-        model_layout = QHBoxLayout()
-        model_label = QLabel("Select model/backend:")
-        self.image_model_selector = QComboBox()
-        self.image_model_selector.addItems(self.models)
-        model_layout.addWidget(model_label)
-        model_layout.addWidget(self.image_model_selector)
-        model_layout.addStretch()
-        layout.addLayout(model_layout)
-        
-        # Image display area
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(640, 480)
-        self.image_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
-        layout.addWidget(self.image_label)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        upload_btn = QPushButton("Upload Image")
-        upload_btn.clicked.connect(self.upload_image)
-        recognize_btn = QPushButton("Recognize Faces")
-        recognize_btn.clicked.connect(self.recognize_faces)
-        
-        button_layout.addWidget(upload_btn)
-        button_layout.addWidget(recognize_btn)
-        layout.addLayout(button_layout)
-    
-    def setup_webcam_tab(self):
-        layout = QVBoxLayout(self.webcam_tab)
-        
-        # Model selector
-        model_layout = QHBoxLayout()
-        model_label = QLabel("Select model/backend:")
-        self.webcam_model_selector = QComboBox()
-        self.webcam_model_selector.addItems(self.models)
-        model_layout.addWidget(model_label)
-        model_layout.addWidget(self.webcam_model_selector)
-        model_layout.addStretch()
-        layout.addLayout(model_layout)
-        
-        # Webcam display
-        self.webcam_label = QLabel()
-        self.webcam_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.webcam_label.setMinimumSize(640, 480)
-        self.webcam_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
-        layout.addWidget(self.webcam_label)
-        
-        # Controls
-        controls_layout = QHBoxLayout()
-        self.camera_btn = QPushButton("Start Camera")
-        self.camera_btn.clicked.connect(self.toggle_camera)
-        controls_layout.addWidget(self.camera_btn)
-        layout.addLayout(controls_layout)
-
+ 
     def upload_enrollment_image(self):
         file_name, _ = QFileDialog.getOpenFileName(
             self,
@@ -219,10 +165,8 @@ class FaceRecognitionApp(QMainWindow):
                 binary_data = file.read()
             
             # Insert into database
-            cursor.execute("""
-                INSERT INTO images_store (image_name, image_column) 
-                VALUES (%s, %s)
-            """, (self.name_input.text(), binary_data))
+            query = "INSERT INTO images_store (image_name, image_column) VALUES (%s, %s)"
+            cursor.execute(query, (self.name_input.text(), binary_data))
             
             conn.commit()
             cursor.close()
@@ -234,6 +178,55 @@ class FaceRecognitionApp(QMainWindow):
         except Error as e:
             QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
 
+    def delete_face(self, face_id):
+        try:
+            conn = mysql.connector.connect(**self.db_config)
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM images_store WHERE id = %s", (face_id,))
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            self.load_enrolled_faces()  # Reload the table
+            
+        except Error as e:
+            QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
+    """
+    # <------------------- Image Recognition Tab ------------------> 
+    """
+    def setup_image_tab(self):
+        layout = QVBoxLayout(self.image_tab)
+        
+        # Model selector
+        model_layout = QHBoxLayout()
+        model_label = QLabel("Select model/backend:")
+        self.image_model_selector = QComboBox()
+        self.image_model_selector.addItems(self.models)
+        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.image_model_selector)
+        model_layout.addStretch()
+        layout.addLayout(model_layout)
+        
+        # Image display area
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMinimumSize(640, 480)
+        self.image_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
+        layout.addWidget(self.image_label)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        upload_btn = QPushButton("Upload Image")
+        upload_btn.clicked.connect(self.upload_image)
+        recognize_btn = QPushButton("Recognize Faces")
+        recognize_btn.clicked.connect(self.recognize_faces)
+        
+        button_layout.addWidget(upload_btn)
+        button_layout.addWidget(recognize_btn)
+        layout.addLayout(button_layout)
+ 
     def load_enrolled_faces(self):
         try:
             conn = mysql.connector.connect(**self.db_config)
@@ -259,21 +252,129 @@ class FaceRecognitionApp(QMainWindow):
         except Error as e:
             QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
 
-    def delete_face(self, face_id):
+    def upload_image(self):
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Image",
+            "",
+            "Image Files (*.png *.jpg *.jpeg *.bmp)"
+        )
+        if file_name:
+            self.current_image_path = file_name  # Store the path for later use
+            pixmap = QPixmap(file_name)
+            scaled_pixmap = pixmap.scaled(
+                640, 480,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.image_label.setPixmap(scaled_pixmap)
+
+    def recognize_faces(self):
+        if not hasattr(self, 'current_image_path'):
+            QMessageBox.warning(self, "Warning", "Please upload an image first.")
+            return
+            
         try:
-            conn = mysql.connector.connect(**self.db_config)
-            cursor = conn.cursor()
+            # Load the image
+            image = cv2.cvtColor(cv2.imread(self.current_image_path), cv2.COLOR_BGR2RGB)
+   
+            # <-------------- Face Recognition -------------->
             
-            cursor.execute("DELETE FROM images_store WHERE id = %s", (face_id,))
-            conn.commit()
+            # Get face locations and encodings
+            # face_locations = face_recognition.face_locations(image)
+            # face_encodings = face_recognition.face_encodings(image, face_locations)
+
+
+            # <-------------- Deep Face --------------------->
+
+            # Get selected model from dropdown
+            selected_model = self.image_model_selector.currentText()
+
+            # Get face embeddings from the image
+            face_objs = DeepFace.represent(
+                img_path=image,
+                model_name=selected_model,
+            )
+
+            # Process each face found in the image
+            face_embeddings = []
+            face_locations = []
+            for face_obj in face_objs:
+                face_embedding = np.array(face_obj['embedding'])
+                face_embeddings.append(face_embedding)
+
+                facial_area = face_obj['facial_area']
+                
+                # Extract coordinates from facial_area
+                left = facial_area['x']
+                top = facial_area['y']
+                right = left + facial_area['w']
+                bottom = top + facial_area['h']
+
+                face_locations.append((top, right, bottom, left))
+
+            # Get known faces from database
+            known_faces, known_names = self.load_known_faces_from_db(selected_model)
             
-            cursor.close()
-            conn.close()
+            # Process each face found in the image
+            for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
+                # Compare with known faces
+                matches = face_recognition.compare_faces(known_faces, face_encoding)
+                name = "Unknown"
+                
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    name = known_names[first_match_index]
+                
+                # Draw box around face
+                cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 255), 2)
+                
+                # Draw label with name
+                cv2.rectangle(image, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(image, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
             
-            self.load_enrolled_faces()  # Reload the table
+            # Convert to Qt format and display
+            height, width, channel = image.shape
+            bytes_per_line = 3 * width
+            qt_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            self.image_label.setPixmap(QPixmap.fromImage(qt_image).scaled(
+                self.image_label.width(), self.image_label.height(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            ))
             
-        except Error as e:
-            QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
+    """
+    # <------------------------ Webcam Tab ------------------------>
+
+    def setup_webcam_tab(self):
+        layout = QVBoxLayout(self.webcam_tab)
+        
+        # Model selector
+        model_layout = QHBoxLayout()
+        model_label = QLabel("Select model/backend:")
+        self.webcam_model_selector = QComboBox()
+        self.webcam_model_selector.addItems(self.models)
+        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.webcam_model_selector)
+        model_layout.addStretch()
+        layout.addLayout(model_layout)
+        
+        # Webcam display
+        self.webcam_label = QLabel()
+        self.webcam_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.webcam_label.setMinimumSize(640, 480)
+        self.webcam_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
+        layout.addWidget(self.webcam_label)
+        
+        # Controls
+        controls_layout = QHBoxLayout()
+        self.camera_btn = QPushButton("Start Camera")
+        self.camera_btn.clicked.connect(self.toggle_camera)
+        controls_layout.addWidget(self.camera_btn)
+        layout.addLayout(controls_layout)
 
     def update_frame(self):
         ret, frame = self.camera.read()
@@ -284,7 +385,7 @@ class FaceRecognitionApp(QMainWindow):
             # <-------------- Deep Face --------------------->
 
             # Get selected model from dropdown
-            selected_model = self.image_model_selector.currentText()
+            selected_model = self.webcam_model_selector.currentText()
 
             # Get face embeddings from the image
             face_objs = DeepFace.represent(
@@ -318,7 +419,7 @@ class FaceRecognitionApp(QMainWindow):
             # <---------------------------------------------->
 
             # Get known faces from database
-            known_faces, known_names = self.load_known_faces_from_db()
+            known_faces, known_names = self.load_known_faces_from_db(selected_model)
             
             # Draw boxes and labels for each face
             for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
@@ -362,105 +463,10 @@ class FaceRecognitionApp(QMainWindow):
                 self.timer.start(30)  # 30ms refresh rate
                 self.camera_btn.setText("Stop Camera")
 
-    def upload_image(self):
-        file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Image",
-            "",
-            "Image Files (*.png *.jpg *.jpeg *.bmp)"
-        )
-        if file_name:
-            self.current_image_path = file_name  # Store the path for later use
-            pixmap = QPixmap(file_name)
-            scaled_pixmap = pixmap.scaled(
-                640, 480,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self.image_label.setPixmap(scaled_pixmap)
+    # <---------------------- Helper Methods ----------------------->
 
-    def recognize_faces(self):
-        if not hasattr(self, 'current_image_path'):
-            QMessageBox.warning(self, "Warning", "Please upload an image first.")
-            return
-            
-        try:
-            # Load the image
-            image = cv2.cvtColor(cv2.imread(self.current_image_path), cv2.COLOR_BGR2RGB)
-   
-            # <-------------- Face Recognition -------------->
-            
-            # Get face locations and encodings
-            # face_locations = face_recognition.face_locations(image)
-            # face_encodings = face_recognition.face_encodings(image, face_locations)
-            
-
-
-            # <-------------- Deep Face --------------------->
-
-            # Get selected model from dropdown
-            selected_model = self.image_model_selector.currentText()
-
-            # Get face embeddings from the image
-            face_objs = DeepFace.represent(
-                img_path=image,
-                model_name=selected_model,
-            )
-
-            # Process each face found in the image
-            face_embeddings = []
-            face_locations = []
-            for face_obj in face_objs:
-                face_embedding = np.array(face_obj['embedding'])
-                face_embeddings.append(face_embedding)
-
-                facial_area = face_obj['facial_area']
-                
-                # Extract coordinates from facial_area
-                left = facial_area['x']
-                top = facial_area['y']
-                right = left + facial_area['w']
-                bottom = top + facial_area['h']
-
-                face_locations.append((top, right, bottom, left))
-
-            # Get known faces from database
-            known_faces, known_names = self.load_known_faces_from_db()
-            
-            # Process each face found in the image
-            for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
-                # Compare with known faces
-                matches = face_recognition.compare_faces(known_faces, face_encoding)
-                name = "Unknown"
-                
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_names[first_match_index]
-                
-                # Draw box around face
-                cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 255), 2)
-                
-                # Draw label with name
-                cv2.rectangle(image, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-                font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(image, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
-            
-            # Convert to Qt format and display
-            height, width, channel = image.shape
-            bytes_per_line = 3 * width
-            qt_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            self.image_label.setPixmap(QPixmap.fromImage(qt_image).scaled(
-                self.image_label.width(), self.image_label.height(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            ))
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
-
-    def load_known_faces_from_db(self):
-        known_faces = []
-        known_names = []
+    def load_known_faces_from_db(self, selected_model):
+        known_faces = []; known_names = []
         
         try:
             conn = mysql.connector.connect(**self.db_config)
@@ -470,7 +476,7 @@ class FaceRecognitionApp(QMainWindow):
             results = cursor.fetchall()
 
             # Get selected model from dropdown
-            selected_model = self.image_model_selector.currentText()
+            # selected_model = self.image_model_selector.currentText()
             
             for name, image_data in results:
                 # Convert image data to numpy array
@@ -487,6 +493,9 @@ class FaceRecognitionApp(QMainWindow):
 
                 known_faces.append(np.array(embedding_objs[0]['embedding']))
                 known_names.append(os.path.splitext(name)[0])
+
+                # Remove temp file
+                os.remove(temp_path)
             
             cursor.close()
             conn.close()
@@ -495,4 +504,16 @@ class FaceRecognitionApp(QMainWindow):
             print(f"Error accessing database: {e}")
         
         return known_faces, known_names
-    
+
+"""
+def main():
+    app = QApplication(sys.argv)
+    app.setStyle('Fusion')
+    window = FaceRecognitionApp()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()
+"""
+# <---------------------- End of the Program ---------------------->
