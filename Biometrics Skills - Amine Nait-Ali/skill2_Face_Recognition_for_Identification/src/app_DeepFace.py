@@ -13,6 +13,8 @@ from deepface import DeepFace
 import mysql.connector
 from mysql.connector import Error
 
+# Suppress TensorFlow logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  
 
 class FaceRecognitionApp(QMainWindow):
     def __init__(self):
@@ -31,23 +33,26 @@ class FaceRecognitionApp(QMainWindow):
 
         # Models
         self.models = [
-                "VGG-Face", 
                 "Facenet", 
-                "Facenet512", 
-                "OpenFace", 
-                "DeepFace", 
-                "DeepID", 
-                "ArcFace", 
+                # "Facenet512", 
+                # "OpenFace", 
+                # "DeepFace", 
+                # "DeepID", 
+                # "ArcFace", 
                 "Dlib", 
-                "SFace",
-                "GhostFaceNet",
+                "VGG-Face", 
+                # "SFace",
+                # "GhostFaceNet",
                 ]
 
         # Initialize camera variables
         self.camera = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
-        
+    
+        # Initialize capture frame
+        self.captured_frame = None
+
         # Set up the main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -60,20 +65,27 @@ class FaceRecognitionApp(QMainWindow):
         # Create tabs
         self.enrollment_tab = QWidget()
         self.image_tab = QWidget()
+        self.capture_tab = QWidget()
         self.webcam_tab = QWidget()
         
         # Add tabs to the tab widget
         # self.tabs.addTab(self.enrollment_tab, "Enrollment")
         # self.tabs.addTab(self.image_tab, "Image Recognition")
+        self.tabs.addTab(self.capture_tab, "Capture and Recognize")
         self.tabs.addTab(self.webcam_tab, "Real-time Recognition")
         
         # Setup tabs
         # self.setup_enrollment_tab()
         # self.setup_image_tab()
+        self.setup_capture_tab()
         self.setup_webcam_tab()
+
+        # Track active tab
+        self.current_tab = "capture"
+        self.tabs.currentChanged.connect(self.handle_tab_change)
     
     # <----------------------- Enrollment Tab --------------------->
-    """
+    
     def setup_enrollment_tab(self):
         layout = QVBoxLayout(self.enrollment_tab)
         
@@ -193,9 +205,9 @@ class FaceRecognitionApp(QMainWindow):
             
         except Error as e:
             QMessageBox.critical(self, "Error", f"Database error: {str(e)}")
-    """
+    
     # <------------------- Image Recognition Tab ------------------> 
-    """
+    
     def setup_image_tab(self):
         layout = QVBoxLayout(self.image_tab)
         
@@ -327,12 +339,12 @@ class FaceRecognitionApp(QMainWindow):
                     name = known_names[first_match_index]
                 
                 # Draw box around face
-                cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 255), 2)
+                cv2.rectangle(image, (left, top), (right, bottom), (0, 85, 255, 220), 2)
                 
                 # Draw label with name
-                cv2.rectangle(image, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                cv2.rectangle(image, (left, bottom - 35), (right, bottom), (0, 85, 255, 220), cv2.FILLED)
                 font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(image, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
+                cv2.putText(image, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
             
             # Convert to Qt format and display
             height, width, channel = image.shape
@@ -346,9 +358,220 @@ class FaceRecognitionApp(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
-    """
-    # <------------------------ Webcam Tab ------------------------>
+    
+    # <----------------------- Capture Tab ------------------------>
+    
+    def setup_capture_tab(self):
+        layout = QVBoxLayout(self.capture_tab)
+        
+        # Model selector
+        model_layout = QHBoxLayout()
+        model_label = QLabel("Select model/backend:")
+        self.capture_model_selector = QComboBox()
+        self.capture_model_selector.addItems(self.models)
+        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.capture_model_selector)
+        model_layout.addStretch()
+        layout.addLayout(model_layout)
+        
+        # Camera display
+        self.capture_label = QLabel()
+        self.capture_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.capture_label.setMinimumSize(640, 480)
+        self.capture_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
+        layout.addWidget(self.capture_label)
+        
+        # Controls
+        controls_layout = QHBoxLayout()
+        
+        # Camera toggle button
+        self.capture_camera_btn = QPushButton("Start Camera")
+        self.capture_camera_btn.clicked.connect(self.toggle_capture_camera)
+        controls_layout.addWidget(self.capture_camera_btn)
+        
+        # Capture and identify button
+        self.capture_identify_btn = QPushButton("Capture and Identify")
+        self.capture_identify_btn.clicked.connect(self.capture_and_identify)
+        self.capture_identify_btn.setEnabled(False)  # Initially disabled
+        controls_layout.addWidget(self.capture_identify_btn)
+        
+        layout.addLayout(controls_layout)
 
+    def toggle_capture_camera(self):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.camera.release()
+            self.camera = None
+            self.capture_camera_btn.setText("Start Camera")
+            self.capture_identify_btn.setEnabled(False)
+            self.capture_label.clear()
+        else:
+            self.camera = cv2.VideoCapture(0)
+            if self.camera.isOpened():
+                self.timer.start(30)  # 30ms refresh rate
+                self.capture_camera_btn.setText("Stop Camera")
+                self.capture_identify_btn.setEnabled(True)                
+    
+    def capture_and_identify(self):
+        if self.camera is None or not self.camera.isOpened():
+            return
+
+        # Capture current frame
+        ret, frame = self.camera.read()
+        if ret:
+            self.captured_frame = frame
+
+            # Stop the camera after capturing the frame
+            self.timer.stop()
+            self.camera.release()
+            self.camera = None
+            self.capture_camera_btn.setText("Start Camera")
+            self.capture_identify_btn.setEnabled(False)
+
+            if self.detected_face is None:
+                QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
+                return
+
+            # Extract the detected face region
+            x, y, w, h = self.detected_face
+            face_region = frame[y:y+h, x:x+w]
+
+            # Convert face region to RGB for processing
+            rgb_face = cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB)
+
+            # Get selected model
+            selected_model = self.capture_model_selector.currentText()
+
+            try:
+                # Get face embeddings from the face region
+                face_objs = DeepFace.represent(
+                    img_path=rgb_face,
+                    model_name=selected_model,
+                    enforce_detection=False  # Allow processing even if no face is detected
+                )
+
+                # Check if any faces were detected
+                if not face_objs:
+                    QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
+                    return
+
+                # Process the detected face
+                face_embedding = np.array(face_objs[0]['embedding'])
+
+                # Get known faces from database
+                known_faces, known_names = self.load_known_faces_from_db(selected_model)
+
+                # Compare with known faces
+                matches = face_recognition.compare_faces(known_faces, face_embedding)
+                name = "Unknown"
+                
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    name = known_names[first_match_index]
+                
+                # Draw box and label on the original frame
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x, y+h - 35), (x+w, y+h), (0, 255, 0), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(frame, name, (x + 6, y+h - 6), font, 0.6, (255, 255, 255), 1)
+
+                # Convert to Qt format and display
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = rgb_frame.shape
+                bytes_per_line = ch * w
+                qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+                scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
+                    640, 480,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.capture_label.setPixmap(scaled_pixmap)
+
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
+    
+    def process_capture_frame(self, frame):
+        # Convert frame to RGB for face_recognition
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Get selected model from dropdown
+        selected_model = self.capture_model_selector.currentText()
+
+        try:
+            # Get face embeddings from the image
+            face_objs = DeepFace.represent(
+                img_path=rgb_frame,
+                model_name=selected_model,
+                enforce_detection=False  # Allow processing even if no face is detected
+            )
+
+            # Check if any faces were detected
+            if not face_objs:
+                QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
+                return
+
+            # Process each face found in the image
+            face_embeddings = []
+            face_locations = []
+            for face_obj in face_objs:
+                if 'embedding' not in face_obj or 'facial_area' not in face_obj:
+                    continue  # Skip invalid detections
+
+                face_embedding = np.array(face_obj['embedding'])
+                face_embeddings.append(face_embedding)
+
+                facial_area = face_obj['facial_area']
+                
+                # Extract coordinates from facial_area
+                left = facial_area['x']
+                top = facial_area['y']
+                right = left + facial_area['w']
+                bottom = top + facial_area['h']
+
+                face_locations.append((top, right, bottom, left))
+            
+            # Check if any valid faces were found
+            if not face_locations:
+                QMessageBox.information(self, "No Valid Face Detected", "No valid face detected in the image.")
+                return
+
+            # Get known faces from database
+            known_faces, known_names = self.load_known_faces_from_db(selected_model)
+            
+            # Draw boxes and labels for each face
+            for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
+                matches = face_recognition.compare_faces(known_faces, face_encoding)
+                name = "Unknown"
+                
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    name = known_names[first_match_index]
+                
+                # Draw box
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 85, 255, 220), 2)
+                
+                # Draw label
+                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 85, 255, 220), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
+
+            # Convert to Qt format
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_frame.shape
+            bytes_per_line = ch * w
+            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
+                640, 480,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.capture_label.setPixmap(scaled_pixmap)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
+
+    # <------------------------ Webcam Tab ------------------------>
+    
     def setup_webcam_tab(self):
         layout = QVBoxLayout(self.webcam_tab)
         
@@ -376,21 +599,34 @@ class FaceRecognitionApp(QMainWindow):
         controls_layout.addWidget(self.camera_btn)
         layout.addLayout(controls_layout)
 
-    def update_frame(self):
-        ret, frame = self.camera.read()
-        if ret:
-            # Convert frame to RGB for face_recognition
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    def toggle_camera(self):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.camera.release()
+            self.camera = None
+            self.camera_btn.setText("Start Camera")
+            self.webcam_label.clear()
+        else:
+            self.camera = cv2.VideoCapture(0)
+            if self.camera.isOpened():
+                self.timer.start(30)  # 30ms refresh rate
+                self.camera_btn.setText("Stop Camera")
+            else:
+                QMessageBox.critical(self, "Error", "Could not open camera.")
 
-            # <-------------- Deep Face --------------------->
+    def process_webcam_frame(self, frame):
+        # Convert frame to RGB for face_recognition
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Get selected model from dropdown
-            selected_model = self.webcam_model_selector.currentText()
+        # Get selected model from dropdown
+        selected_model = self.webcam_model_selector.currentText()
 
+        try:
             # Get face embeddings from the image
             face_objs = DeepFace.represent(
                 img_path=rgb_frame,
                 model_name=selected_model,
+                enforce_detection=False  # Allow processing even if no face is detected
             )
 
             # Process each face found in the image
@@ -410,14 +646,6 @@ class FaceRecognitionApp(QMainWindow):
 
                 face_locations.append((top, right, bottom, left))
             
-            # <-------------- Face Recognition -------------->  
-
-            # Find faces in current frame
-            # face_locations = face_recognition.face_locations(rgb_frame)
-            # face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
-            
-            # <---------------------------------------------->
-
             # Get known faces from database
             known_faces, known_names = self.load_known_faces_from_db(selected_model)
             
@@ -437,7 +665,7 @@ class FaceRecognitionApp(QMainWindow):
                 cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
                 font = cv2.FONT_HERSHEY_DUPLEX
                 cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
-            
+
             # Convert to Qt format
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
@@ -450,21 +678,49 @@ class FaceRecognitionApp(QMainWindow):
             )
             self.webcam_label.setPixmap(scaled_pixmap)
 
-    def toggle_camera(self):
-        if self.timer.isActive():
-            self.timer.stop()
-            self.camera.release()
-            self.camera = None
-            self.camera_btn.setText("Start Camera")
-            self.webcam_label.clear()
-        else:
-            self.camera = cv2.VideoCapture(0)
-            if self.camera.isOpened():
-                self.timer.start(30)  # 30ms refresh rate
-                self.camera_btn.setText("Stop Camera")
+        except Exception as e:
+            print(f"Error processing frame: {e}")
 
     # <---------------------- Helper Methods ----------------------->
+    
+    def update_frame(self):
+        if self.camera is None or not self.camera.isOpened():
+            return
 
+        ret, frame = self.camera.read()
+        if ret:
+            self.current_frame = frame.copy()  # Copy for processing purposes
+            display_frame = frame.copy()  # Copy for display purposes
+            gray = cv2.cvtColor(display_frame, cv2.COLOR_BGR2GRAY)
+            
+            # Load OpenCV's pre-trained face detector
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            
+            # Detect faces
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            
+            if len(faces) > 0:
+                # Sort faces by size (area) and get the largest one
+                x, y, w, h = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[0]
+                self.detected_face = (x, y, w, h)
+                cv2.rectangle(display_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            else:
+                self.detected_face = None
+            
+            # Convert the frame to QPixmap for display
+            display_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+            height, width, channel = display_frame.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(display_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(q_image)
+            self.capture_label.setPixmap(pixmap.scaled(640, 480, Qt.KeepAspectRatio))
+
+    def handle_tab_change(self, index):
+        if index == 0:
+            self.current_tab = "capture"
+        else:
+            self.current_tab = "webcam"
+    
     def load_known_faces_from_db(self, selected_model):
         known_faces = []; known_names = []
         
@@ -475,27 +731,16 @@ class FaceRecognitionApp(QMainWindow):
             cursor.execute("SELECT image_name, image_column FROM images_store")
             results = cursor.fetchall()
 
-            # Get selected model from dropdown
-            # selected_model = self.image_model_selector.currentText()
-            
             for name, image_data in results:
                 # Convert image data to numpy array
                 nparr = np.frombuffer(image_data, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 
-                # Get face encoding
-                temp_path = "temp_image.jpg"
-                cv2.imwrite(temp_path, rgb_img)
-                
                 # Get face embedding
-                embedding_objs = DeepFace.represent(img_path=temp_path, model_name=selected_model) # Dlib
-
+                embedding_objs = DeepFace.represent(img_path=rgb_img, model_name=selected_model, enforce_detection=False)
                 known_faces.append(np.array(embedding_objs[0]['embedding']))
                 known_names.append(os.path.splitext(name)[0])
-
-                # Remove temp file
-                os.remove(temp_path)
             
             cursor.close()
             conn.close()
@@ -504,8 +749,8 @@ class FaceRecognitionApp(QMainWindow):
             print(f"Error accessing database: {e}")
         
         return known_faces, known_names
-
-"""
+    
+# """
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
@@ -515,5 +760,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-"""
+# """
 # <---------------------- End of the Program ---------------------->
