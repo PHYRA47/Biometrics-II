@@ -33,13 +33,13 @@ class FaceRecognitionApp(QMainWindow):
 
         # Models
         self.models = [
+                "Dlib", 
                 "Facenet", 
                 # "Facenet512", 
                 # "OpenFace", 
                 # "DeepFace", 
                 # "DeepID", 
                 # "ArcFace", 
-                "Dlib", 
                 "VGG-Face", 
                 # "SFace",
                 # "GhostFaceNet",
@@ -69,16 +69,16 @@ class FaceRecognitionApp(QMainWindow):
         self.webcam_tab = QWidget()
         
         # Add tabs to the tab widget
-        # self.tabs.addTab(self.enrollment_tab, "Enrollment")
-        # self.tabs.addTab(self.image_tab, "Image Recognition")
+        self.tabs.addTab(self.image_tab, "Image Recognition")
         self.tabs.addTab(self.capture_tab, "Capture and Recognize")
         self.tabs.addTab(self.webcam_tab, "Real-time Recognition")
+        self.tabs.addTab(self.enrollment_tab, "Enrollment")
         
         # Setup tabs
-        # self.setup_enrollment_tab()
-        # self.setup_image_tab()
+        self.setup_image_tab()
         self.setup_capture_tab()
         self.setup_webcam_tab()
+        self.setup_enrollment_tab()
 
         # Track active tab
         self.current_tab = "capture"
@@ -411,7 +411,7 @@ class FaceRecognitionApp(QMainWindow):
                 self.timer.start(30)  # 30ms refresh rate
                 self.capture_camera_btn.setText("Stop Camera")
                 self.capture_identify_btn.setEnabled(True)                
-    
+   
     def capture_and_identify(self):
         if self.camera is None or not self.camera.isOpened():
             return
@@ -428,68 +428,9 @@ class FaceRecognitionApp(QMainWindow):
             self.capture_camera_btn.setText("Start Camera")
             self.capture_identify_btn.setEnabled(False)
 
-            if self.detected_face is None:
-                QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
-                return
+            # Process the captured frame
+            self.process_capture_frame(frame)
 
-            # Extract the detected face region
-            x, y, w, h = self.detected_face
-            face_region = frame[y:y+h, x:x+w]
-
-            # Convert face region to RGB for processing
-            rgb_face = cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB)
-
-            # Get selected model
-            selected_model = self.capture_model_selector.currentText()
-
-            try:
-                # Get face embeddings from the face region
-                face_objs = DeepFace.represent(
-                    img_path=rgb_face,
-                    model_name=selected_model,
-                    enforce_detection=False  # Allow processing even if no face is detected
-                )
-
-                # Check if any faces were detected
-                if not face_objs:
-                    QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
-                    return
-
-                # Process the detected face
-                face_embedding = np.array(face_objs[0]['embedding'])
-
-                # Get known faces from database
-                known_faces, known_names = self.load_known_faces_from_db(selected_model)
-
-                # Compare with known faces
-                matches = face_recognition.compare_faces(known_faces, face_embedding)
-                name = "Unknown"
-                
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_names[first_match_index]
-                
-                # Draw box and label on the original frame
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.rectangle(frame, (x, y+h - 35), (x+w, y+h), (0, 255, 0), cv2.FILLED)
-                font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, name, (x + 6, y+h - 6), font, 0.6, (255, 255, 255), 1)
-
-                # Convert to Qt format and display
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, ch = rgb_frame.shape
-                bytes_per_line = ch * w
-                qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-                scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
-                    640, 480,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                self.capture_label.setPixmap(scaled_pixmap)
-
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
-    
     def process_capture_frame(self, frame):
         # Convert frame to RGB for face_recognition
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -659,10 +600,10 @@ class FaceRecognitionApp(QMainWindow):
                     name = known_names[first_match_index]
                 
                 # Draw box
-                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                cv2.rectangle(frame, (left, top), (right, bottom), (255, 85, 0, 220), 2)
                 
                 # Draw label
-                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (255, 85, 0, 220), cv2.FILLED)
                 font = cv2.FONT_HERSHEY_DUPLEX
                 cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
 
@@ -691,36 +632,41 @@ class FaceRecognitionApp(QMainWindow):
         if ret:
             self.current_frame = frame.copy()  # Copy for processing purposes
             display_frame = frame.copy()  # Copy for display purposes
-            gray = cv2.cvtColor(display_frame, cv2.COLOR_BGR2GRAY)
-            
-            # Load OpenCV's pre-trained face detector
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            
-            # Detect faces
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-            
-            if len(faces) > 0:
-                # Sort faces by size (area) and get the largest one
-                x, y, w, h = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[0]
-                self.detected_face = (x, y, w, h)
-                cv2.rectangle(display_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+
+            if self.current_tab == "capture":
+                gray = cv2.cvtColor(display_frame, cv2.COLOR_BGR2GRAY)
+                
+                # Load OpenCV's pre-trained face detector
+                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                
+                # Detect faces
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+                
+                if len(faces) > 0:
+                    # Sort faces by size (area) and get the largest one
+                    x, y, w, h = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[0]
+                    self.detected_face = (x, y, w, h)
+                    cv2.rectangle(display_frame, (x, y), (x+w, y+h), (255, 85, 0, 220), 2)
+                else:
+                    self.detected_face = None
+
+                # Convert the frame to QPixmap for display
+                display_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+                height, width, channel = display_frame.shape
+                bytes_per_line = 3 * width
+                q_image = QImage(display_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+                pixmap = QPixmap.fromImage(q_image)
+                self.capture_label.setPixmap(pixmap.scaled(640, 480, Qt.KeepAspectRatio))
             else:
-                self.detected_face = None
-            
-            # Convert the frame to QPixmap for display
-            display_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
-            height, width, channel = display_frame.shape
-            bytes_per_line = 3 * width
-            q_image = QImage(display_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(q_image)
-            self.capture_label.setPixmap(pixmap.scaled(640, 480, Qt.KeepAspectRatio))
+                # For webcam tab, process frame with face recognition
+                self.process_webcam_frame(frame)
 
     def handle_tab_change(self, index):
         if index == 0:
             self.current_tab = "capture"
         else:
             self.current_tab = "webcam"
-    
+
     def load_known_faces_from_db(self, selected_model):
         known_faces = []; known_names = []
         
@@ -731,16 +677,27 @@ class FaceRecognitionApp(QMainWindow):
             cursor.execute("SELECT image_name, image_column FROM images_store")
             results = cursor.fetchall()
 
+            # Get selected model from dropdown
+            # selected_model = self.image_model_selector.currentText()
+            
             for name, image_data in results:
                 # Convert image data to numpy array
                 nparr = np.frombuffer(image_data, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 
+                # Get face encoding
+                temp_path = "temp_image.jpg"
+                cv2.imwrite(temp_path, rgb_img)
+                
                 # Get face embedding
-                embedding_objs = DeepFace.represent(img_path=rgb_img, model_name=selected_model, enforce_detection=False)
+                embedding_objs = DeepFace.represent(img_path=temp_path, model_name=selected_model) # Dlib
+
                 known_faces.append(np.array(embedding_objs[0]['embedding']))
                 known_names.append(os.path.splitext(name)[0])
+
+                # Remove temp file
+                os.remove(temp_path)
             
             cursor.close()
             conn.close()
@@ -749,7 +706,7 @@ class FaceRecognitionApp(QMainWindow):
             print(f"Error accessing database: {e}")
         
         return known_faces, known_names
-    
+
 # """
 def main():
     app = QApplication(sys.argv)
