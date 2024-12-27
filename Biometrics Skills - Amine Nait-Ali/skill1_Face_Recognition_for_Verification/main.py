@@ -8,6 +8,15 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap
 from functions import preprocess_to_lfw, get_image_embeddings
+import os
+
+
+# Get the absolute path of the current script
+current_script_path = os.path.abspath(__file__)
+
+# Get the directory of the current script
+current_script_dir = os.path.dirname(current_script_path)
+
 
 class FaceRecognitionGUI(QMainWindow):
     def __init__(self):
@@ -22,9 +31,9 @@ class FaceRecognitionGUI(QMainWindow):
         # Initialize model variables
         self.current_model = None
         self.model_paths = {
-            'VGG19': 'model_vgg19/vgg19.keras',
-            'Xception': 'model_xception/xception.keras',
-            'ResNet': 'model_resnet/resnet.keras'
+            'VGG19': f'{current_script_dir}''/model_vgg19/vgg19.keras',
+            'Xception': f'{current_script_dir}''/model_xception/xception.keras',
+            'ResNet': f'{current_script_dir}''/model_resnet/resnet.keras'
             # Add other models as needed
         }
         
@@ -344,7 +353,6 @@ class FaceRecognitionGUI(QMainWindow):
                     self.webcam_results_text.setText("No face detected in the reference or webcam image.")
                 else:
                     self.webcam_results_text.setText("An error occurred during image verification.")
-
 
     def closeEvent(self, event):
         if self.webcam is not None:
