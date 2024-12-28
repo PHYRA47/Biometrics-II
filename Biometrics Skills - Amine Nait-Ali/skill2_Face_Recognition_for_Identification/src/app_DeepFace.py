@@ -1,11 +1,11 @@
+import sys
 import os
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QLabel, QTabWidget, 
                             QFileDialog, QComboBox, QLineEdit, QMessageBox,
                             QTableWidget, QTableWidgetItem)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap
-
 import cv2
 import numpy as np
 import face_recognition
@@ -35,6 +35,7 @@ class FaceRecognitionApp(QMainWindow):
 
         # Models
         self.models = [
+                "face_recognition",
                 "Dlib", 
                 "Facenet", 
                 # "Facenet512", 
@@ -45,7 +46,7 @@ class FaceRecognitionApp(QMainWindow):
                 "VGG-Face", 
                 # "SFace",
                 # "GhostFaceNet",
-                "Face Recognition Library"
+                # "LightFaceNet",
                 ]
 
         # Initialize camera variables
@@ -292,19 +293,22 @@ class FaceRecognitionApp(QMainWindow):
         try:
             # Load the image
             image = cv2.cvtColor(cv2.imread(self.current_image_path), cv2.COLOR_BGR2RGB)
-   
-            # <-------------- Face Recognition -------------->
             
             # Get selected model from dropdown
             selected_model = self.image_model_selector.currentText()
 
-            if selected_model == "Face Recognition Library":
-                # Use face_recognition library
+            if selected_model == "face_recognition":
+
+                # <-------------- Face Recognition -------------->
+
+                # Get face locations and encodings using face_recognition
                 face_locations = face_recognition.face_locations(image)
                 face_embeddings = face_recognition.face_encodings(image, face_locations)
-                
             else:
-                # Use DeepFace
+                
+                # <-------------- Deep Face --------------------->
+
+                # Get face embeddings from the image
                 face_objs = DeepFace.represent(
                     img_path=image,
                     model_name=selected_model,
@@ -396,13 +400,13 @@ class FaceRecognitionApp(QMainWindow):
         self.capture_identify_btn.clicked.connect(self.capture_and_identify)
         self.capture_identify_btn.setEnabled(False)  # Initially disabled
         controls_layout.addWidget(self.capture_identify_btn)
-
-        # CMC Curve button
-        self.cmc_button = QPushButton("CMC Curve")
-        self.cmc_button.setEnabled(False)  # Initially inactive
-        self.cmc_button.clicked.connect(self.show_cmc_curve)
-        controls_layout.addWidget(self.cmc_button)
         
+        # Add CMC curve button (initially disabled)
+        self.cmc_button = QPushButton("CMC Curve")
+        self.cmc_button.clicked.connect(self.show_cmc_curve)
+        self.cmc_button.setEnabled(False)
+        controls_layout.addWidget(self.cmc_button)
+
         layout.addLayout(controls_layout)
 
     def toggle_capture_camera(self):
@@ -419,7 +423,7 @@ class FaceRecognitionApp(QMainWindow):
                 self.timer.start(30)  # 30ms refresh rate
                 self.capture_camera_btn.setText("Stop Camera")
                 self.capture_identify_btn.setEnabled(True)                
-    
+   
     def capture_and_identify(self):
         if self.camera is None or not self.camera.isOpened():
             return
@@ -439,10 +443,6 @@ class FaceRecognitionApp(QMainWindow):
             # Process the captured frame
             self.process_capture_frame(self.captured_frame)
 
-            # Show success message and enable CMC curve button
-            QMessageBox.information(self, "Success", "Face identified successfully!")
-            self.cmc_button.setEnabled(True)  # Activate the button
-
     def process_capture_frame(self, frame):
         try:
             # Convert frame to RGB
@@ -451,64 +451,89 @@ class FaceRecognitionApp(QMainWindow):
             # Get selected model
             selected_model = self.capture_model_selector.currentText()
 
-            # Store embeddings for CMC curve
-            self.current_embedding = None
-            self.current_known_faces = []
-            self.current_known_names = []
-            
-            # Get face embeddings
-            face_objs = DeepFace.represent(
-                img_path=rgb_frame,
-                model_name=selected_model,
-                enforce_detection=False
-            )
-            
-            if not face_objs:
-                QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
-                return
-                
-            # Process faces
-            for face_obj in face_objs:
-                if 'embedding' not in face_obj or 'facial_area' not in face_obj:
-                    continue
-                
-                # Get face embedding
-                face_embedding = np.array(face_obj['embedding'])
+            # Get known faces from database
+            known_faces, known_names = self.load_known_faces_from_db(selected_model)
+
+            if selected_model == "face_recognition":
+                # <---------------- Face Recognition ----------------->
+
+                # Get face locations and encodings using face_recognition
+                face_locations = face_recognition.face_locations(rgb_frame)
+                face_embeddings = face_recognition.face_encodings(rgb_frame, face_locations)
 
                 # Store the current embedding for CMC curve
-                self.current_embedding = face_embedding
-                
-                # Get facial area
-                facial_area = face_obj['facial_area']
-                
-                # Get coordinates
-                left = facial_area['x']
-                top = facial_area['y']
-                right = left + facial_area['w']
-                bottom = top + facial_area['h']
-                
-                # Get known faces from database and store them
-                known_faces, known_names = self.load_known_faces_from_db(selected_model)
-                self.current_known_faces = known_faces
-                self.current_known_names = known_names
+                self.current_embedding = face_embeddings[0] if face_embeddings else None
 
-                # Compare with known faces
-                matches = face_recognition.compare_faces(known_faces, face_embedding)
-                name = "Unknown"
+                # Loop through each face found in the unknown image
+                for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
+                    # See if the face is a match for the known face(s)
+                    matches = face_recognition.compare_faces(known_faces, face_encoding)
+                    name = "Unknown"
+
+                    # Use the known face with the smallest distance to the new face
+                    face_distances = face_recognition.face_distance(known_faces, face_encoding)
+                    best_match_index = np.argmin(face_distances)
+                    if matches[best_match_index]:
+                        name = known_names[best_match_index]
+
+                    # Draw a box around the face
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+
+                    # Draw a label with a name below the face
+                    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                    font = cv2.FONT_HERSHEY_DUPLEX
+                    cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
+
+            else:
+
+                # <---------------- Deep Face ------------------------>
+
+                # Get face embeddings
+                face_objs = DeepFace.represent(
+                    img_path=rgb_frame,
+                    model_name=selected_model,
+                    enforce_detection=False
+                )
                 
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_names[first_match_index]
+                if not face_objs:
+                    QMessageBox.information(self, "No Face Detected", "No face detected in the image.")
+                    return
+                    
+                # Store the current embedding for CMC curve
+                self.current_embedding = None
+
+                # Process faces
+                for face_obj in face_objs:
+                    if 'embedding' not in face_obj or 'facial_area' not in face_obj:
+                        continue
+
+                    face_embedding = np.array(face_obj['embedding'])
+                    # Store the embedding for CMC curve
+                    self.current_embedding = face_embedding
+                    
+                        
+                    face_embedding = np.array(face_obj['embedding'])
+                    facial_area = face_obj['facial_area']
+                    
+                    # Get coordinates
+                    left = facial_area['x']
+                    top = facial_area['y']
+                    right = left + facial_area['w']
+                    bottom = top + facial_area['h']
+                                  
+                    # Compare with known faces
+                    matches = face_recognition.compare_faces(known_faces, face_embedding)
+                    name = "Unknown"
+                    
+                    if True in matches:
+                        first_match_index = matches.index(True)
+                        name = known_names[first_match_index]
                 
-                # Draw box and label
-                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
-                cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+                    # Draw box and label
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                    cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
             
-            # Enable CMC button after successful processing
-            self.cmc_button.setEnabled(True)
-
-        
             # Display result
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
@@ -518,32 +543,12 @@ class FaceRecognitionApp(QMainWindow):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             ))
+
+            # Enable CMC curve button if face was detected and embedding stored
+            self.cmc_button.setEnabled(self.current_embedding is not None)
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
-    
-    def show_cmc_curve(self):
-        if not hasattr(self, 'current_embedding') or self.current_embedding is None:
-            QMessageBox.warning(self, "Warning", "No face embedding available.")
-            return
-            
-        if not self.current_known_faces:
-            QMessageBox.warning(self, "Warning", "No faces found in database.")
-            return
-        
-        try:
-            # Create and show CMC curve dialog
-            dialog = CMCPlotDialog(
-                self.current_embedding,
-                self.current_known_faces,
-                self.current_known_names,
-                self
-            )
-            dialog.exec_()  # This makes it modal (must be closed before continuing)
-            # Or use dialog.show() if you want non-modal behavior
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error generating CMC curve: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")   
     
     # <------------------------ Webcam Tab ------------------------>
     
@@ -590,74 +595,104 @@ class FaceRecognitionApp(QMainWindow):
                 QMessageBox.critical(self, "Error", "Could not open camera.")
    
     def process_webcam_frame(self, frame):
-        # Convert frame to RGB for face_recognition
+        # Convert frame to RGB
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Get selected model from dropdown
+    
+        # Get selected model
         selected_model = self.webcam_model_selector.currentText()
-
+    
         try:
-            # Get face embeddings from the image
-            face_objs = DeepFace.represent(
-                img_path=rgb_frame,
-                model_name=selected_model,
-                enforce_detection=False  # Allow processing even if no face is detected
-            )
-
-            # Process each face found in the image
-            face_embeddings = []
-            face_locations = []
-            for face_obj in face_objs:
-                face_embedding = np.array(face_obj['embedding'])
-                face_embeddings.append(face_embedding)
-
-                facial_area = face_obj['facial_area']
-                
-                # Extract coordinates from facial_area
-                left = facial_area['x']
-                top = facial_area['y']
-                right = left + facial_area['w']
-                bottom = top + facial_area['h']
-
-                face_locations.append((top, right, bottom, left))
-            
-            # Get known faces from database
+            # Load known faces from DB
             known_faces, known_names = self.load_known_faces_from_db(selected_model)
-            
-            # Draw boxes and labels for each face
-            for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
-                matches = face_recognition.compare_faces(known_faces, face_encoding)
-                name = "Unknown"
-                
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_names[first_match_index]
-                
-                # Draw box
-                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                
-                # Draw label
-                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
-                font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.6, (255, 255, 255), 1)
-
-            # Convert to Qt format
+    
+            if selected_model == "face_recognition":
+                # <-------------- Face Recognition -------------->
+                face_locations = face_recognition.face_locations(rgb_frame)
+                face_embeddings = face_recognition.face_encodings(rgb_frame, face_locations)
+    
+                for (top, right, bottom, left), face_encoding in zip(face_locations, face_embeddings):
+                    matches = face_recognition.compare_faces(known_faces, face_encoding)
+                    face_distances = face_recognition.face_distance(known_faces, face_encoding)
+                    best_match_index = np.argmin(face_distances)
+                    name = "Unknown"
+                    if matches[best_match_index]:
+                        name = known_names[best_match_index]
+    
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                    cv2.putText(frame, name, (left + 6, bottom - 6),
+                                cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+            else:
+                # <-------------- DeepFace ---------------------->
+                face_objs = DeepFace.represent(
+                    img_path=rgb_frame,
+                    model_name=selected_model,
+                    enforce_detection=False
+                )
+                for face_obj in face_objs:
+                    face_embedding = np.array(face_obj['embedding'])
+                    facial_area = face_obj['facial_area']
+                    left = facial_area['x']
+                    top = facial_area['y']
+                    right = left + facial_area['w']
+                    bottom = top + facial_area['h']
+    
+                    matches = face_recognition.compare_faces(known_faces, face_embedding)
+                    name = "Unknown"
+                    if True in matches:
+                        first_match_index = matches.index(True)
+                        name = known_names[first_match_index]
+    
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+                    cv2.putText(frame, name, (left + 6, bottom - 6),
+                                cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+    
+            # Display updated frame
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
-                640, 480,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
+            qt_image = QImage(rgb_frame.data, w, h, ch * w, QImage.Format.Format_RGB888)
+            self.webcam_label.setPixmap(
+                QPixmap.fromImage(qt_image).scaled(
+                    640, 480,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
             )
-            self.webcam_label.setPixmap(scaled_pixmap)
-
+    
         except Exception as e:
-            print(f"Error processing frame: {e}")
+            QMessageBox.critical(self, "Error", f"Error processing webcam frame: {str(e)}")
 
     # <---------------------- Helper Methods ----------------------->
     
+    def show_cmc_curve(self):
+        if self.current_embedding is None:
+            QMessageBox.warning(self, "Warning", "No face embedding available.")
+            return
+        
+        try:
+            # Get selected model
+            selected_model = self.capture_model_selector.currentText()
+            
+            # Get database embeddings
+            known_faces, known_names = self.load_known_faces_from_db(selected_model)
+            
+            if not known_faces:
+                QMessageBox.warning(self, "Warning", "No faces found in database.")
+                return
+            
+            # Create and show CMC curve dialog
+            dialog = CMCPlotDialog(
+                self.current_embedding,
+                known_faces,
+                known_names,
+                self
+            )
+            dialog.exec_()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error generating CMC curve: {str(e)}")
+
     def update_frame(self):
         if self.camera is None or not self.camera.isOpened():
             return
@@ -688,7 +723,7 @@ class FaceRecognitionApp(QMainWindow):
                 
             elif self.tabs.currentWidget() == self.webcam_tab:
                 # For webcam tab, do full face recognition on every frame
-                self.process_webcam_frame(frame)    
+                self.process_webcam_frame(frame) 
 
     def handle_tab_change(self, index):
         if index == 0:
@@ -712,18 +747,20 @@ class FaceRecognitionApp(QMainWindow):
             for name, image_data in results:
                 # Convert image data to numpy array
                 nparr = np.frombuffer(image_data, np.uint8)
-                rgb_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                # rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                
-                if selected_model == "Face Recognition Library":
-                    # Use face_recognition library
-                    face_encoding = face_recognition.face_encodings(rgb_img)[0]
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                if selected_model == "face_recognition":
+                    # Get face encoding
+                    face_encoding = face_recognition.face_encodings(img)[0]
                     known_faces.append(face_encoding)
                     known_names.append(os.path.splitext(name)[0])
-                    continue
                 else:
-                    # Use DeepFace
+
+                    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    
+                    # Save the image in RGB format
                     temp_path = "temp_image.jpg"
+                    rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                     cv2.imwrite(temp_path, rgb_img)
                     
                     # Get face embedding
@@ -743,7 +780,7 @@ class FaceRecognitionApp(QMainWindow):
         
         return known_faces, known_names
 
-"""
+# """
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
@@ -753,5 +790,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-"""
+# """
+# <---------------------- End of the Program ---------------------->
 
