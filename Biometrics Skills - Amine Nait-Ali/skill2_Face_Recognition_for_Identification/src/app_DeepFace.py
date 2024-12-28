@@ -1,17 +1,19 @@
-import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QLabel, QTabWidget, 
                             QFileDialog, QComboBox, QLineEdit, QMessageBox,
                             QTableWidget, QTableWidgetItem)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap
+
 import cv2
 import numpy as np
 import face_recognition
 from deepface import DeepFace
 import mysql.connector
 from mysql.connector import Error
+
+from src.CMCPlotDialog import CMCPlotDialog
 
 # Suppress TensorFlow logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  
@@ -43,6 +45,7 @@ class FaceRecognitionApp(QMainWindow):
                 "VGG-Face", 
                 # "SFace",
                 # "GhostFaceNet",
+                "Face Recognition Library"
                 ]
 
         # Initialize camera variables
@@ -292,38 +295,37 @@ class FaceRecognitionApp(QMainWindow):
    
             # <-------------- Face Recognition -------------->
             
-            # Get face locations and encodings
-            # face_locations = face_recognition.face_locations(image)
-            # face_encodings = face_recognition.face_encodings(image, face_locations)
-
-
-            # <-------------- Deep Face --------------------->
-
             # Get selected model from dropdown
             selected_model = self.image_model_selector.currentText()
 
-            # Get face embeddings from the image
-            face_objs = DeepFace.represent(
-                img_path=image,
-                model_name=selected_model,
-            )
-
-            # Process each face found in the image
-            face_embeddings = []
-            face_locations = []
-            for face_obj in face_objs:
-                face_embedding = np.array(face_obj['embedding'])
-                face_embeddings.append(face_embedding)
-
-                facial_area = face_obj['facial_area']
+            if selected_model == "Face Recognition Library":
+                # Use face_recognition library
+                face_locations = face_recognition.face_locations(image)
+                face_embeddings = face_recognition.face_encodings(image, face_locations)
                 
-                # Extract coordinates from facial_area
-                left = facial_area['x']
-                top = facial_area['y']
-                right = left + facial_area['w']
-                bottom = top + facial_area['h']
+            else:
+                # Use DeepFace
+                face_objs = DeepFace.represent(
+                    img_path=image,
+                    model_name=selected_model,
+                )
 
-                face_locations.append((top, right, bottom, left))
+                # Process each face found in the image
+                face_embeddings = []
+                face_locations = []
+                for face_obj in face_objs:
+                    face_embedding = np.array(face_obj['embedding'])
+                    face_embeddings.append(face_embedding)
+
+                    facial_area = face_obj['facial_area']
+                    
+                    # Extract coordinates from facial_area
+                    left = facial_area['x']
+                    top = facial_area['y']
+                    right = left + facial_area['w']
+                    bottom = top + facial_area['h']
+
+                    face_locations.append((top, right, bottom, left))
 
             # Get known faces from database
             known_faces, known_names = self.load_known_faces_from_db(selected_model)
@@ -394,6 +396,12 @@ class FaceRecognitionApp(QMainWindow):
         self.capture_identify_btn.clicked.connect(self.capture_and_identify)
         self.capture_identify_btn.setEnabled(False)  # Initially disabled
         controls_layout.addWidget(self.capture_identify_btn)
+
+        # CMC Curve button
+        self.cmc_button = QPushButton("CMC Curve")
+        self.cmc_button.setEnabled(False)  # Initially inactive
+        self.cmc_button.clicked.connect(self.show_cmc_curve)
+        controls_layout.addWidget(self.cmc_button)
         
         layout.addLayout(controls_layout)
 
@@ -431,6 +439,10 @@ class FaceRecognitionApp(QMainWindow):
             # Process the captured frame
             self.process_capture_frame(self.captured_frame)
 
+            # Show success message and enable CMC curve button
+            QMessageBox.information(self, "Success", "Face identified successfully!")
+            self.cmc_button.setEnabled(True)  # Activate the button
+
     def process_capture_frame(self, frame):
         try:
             # Convert frame to RGB
@@ -438,6 +450,11 @@ class FaceRecognitionApp(QMainWindow):
             
             # Get selected model
             selected_model = self.capture_model_selector.currentText()
+
+            # Store embeddings for CMC curve
+            self.current_embedding = None
+            self.current_known_faces = []
+            self.current_known_names = []
             
             # Get face embeddings
             face_objs = DeepFace.represent(
@@ -454,8 +471,14 @@ class FaceRecognitionApp(QMainWindow):
             for face_obj in face_objs:
                 if 'embedding' not in face_obj or 'facial_area' not in face_obj:
                     continue
-                    
+                
+                # Get face embedding
                 face_embedding = np.array(face_obj['embedding'])
+
+                # Store the current embedding for CMC curve
+                self.current_embedding = face_embedding
+                
+                # Get facial area
                 facial_area = face_obj['facial_area']
                 
                 # Get coordinates
@@ -464,9 +487,11 @@ class FaceRecognitionApp(QMainWindow):
                 right = left + facial_area['w']
                 bottom = top + facial_area['h']
                 
-                # Get known faces from database
+                # Get known faces from database and store them
                 known_faces, known_names = self.load_known_faces_from_db(selected_model)
-                
+                self.current_known_faces = known_faces
+                self.current_known_names = known_names
+
                 # Compare with known faces
                 matches = face_recognition.compare_faces(known_faces, face_embedding)
                 name = "Unknown"
@@ -480,6 +505,10 @@ class FaceRecognitionApp(QMainWindow):
                 cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
                 cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
             
+            # Enable CMC button after successful processing
+            self.cmc_button.setEnabled(True)
+
+        
             # Display result
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
@@ -492,6 +521,29 @@ class FaceRecognitionApp(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error processing image: {str(e)}")
+    
+    def show_cmc_curve(self):
+        if not hasattr(self, 'current_embedding') or self.current_embedding is None:
+            QMessageBox.warning(self, "Warning", "No face embedding available.")
+            return
+            
+        if not self.current_known_faces:
+            QMessageBox.warning(self, "Warning", "No faces found in database.")
+            return
+        
+        try:
+            # Create and show CMC curve dialog
+            dialog = CMCPlotDialog(
+                self.current_embedding,
+                self.current_known_faces,
+                self.current_known_names,
+                self
+            )
+            dialog.exec_()  # This makes it modal (must be closed before continuing)
+            # Or use dialog.show() if you want non-modal behavior
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error generating CMC curve: {str(e)}")
     
     # <------------------------ Webcam Tab ------------------------>
     
@@ -660,21 +712,28 @@ class FaceRecognitionApp(QMainWindow):
             for name, image_data in results:
                 # Convert image data to numpy array
                 nparr = np.frombuffer(image_data, np.uint8)
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                rgb_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                # rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 
-                # Get face encoding
-                temp_path = "temp_image.jpg"
-                cv2.imwrite(temp_path, rgb_img)
-                
-                # Get face embedding
-                embedding_objs = DeepFace.represent(img_path=temp_path, model_name=selected_model) # Dlib
+                if selected_model == "Face Recognition Library":
+                    # Use face_recognition library
+                    face_encoding = face_recognition.face_encodings(rgb_img)[0]
+                    known_faces.append(face_encoding)
+                    known_names.append(os.path.splitext(name)[0])
+                    continue
+                else:
+                    # Use DeepFace
+                    temp_path = "temp_image.jpg"
+                    cv2.imwrite(temp_path, rgb_img)
+                    
+                    # Get face embedding
+                    embedding_objs = DeepFace.represent(img_path=temp_path, model_name=selected_model) # Dlib
 
-                known_faces.append(np.array(embedding_objs[0]['embedding']))
-                known_names.append(os.path.splitext(name)[0])
+                    known_faces.append(np.array(embedding_objs[0]['embedding']))
+                    known_names.append(os.path.splitext(name)[0])
 
-                # Remove temp file
-                os.remove(temp_path)
+                    # Remove temp file
+                    os.remove(temp_path)
             
             cursor.close()
             conn.close()

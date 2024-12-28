@@ -150,27 +150,31 @@ class MyMainWindow(QMainWindow, Ui_MainWindow):
 
 
 
+            if selected_model == "Face Recognition Library":
+                # Use face_recognition library
+                face_locations = face_recognition.face_locations(image)
+                face_embeddings = face_recognition.face_encodings(image, face_locations)
+                
+            else:
+                # Use DeepFace
+                face_objs = DeepFace.represent(
+                    img_path=image,
+                    model_name=selected_model,
+                )
 
+                # Process each face found in the image
+                face_embeddings = []
+                face_locations = []
+                for face_obj in face_objs:
+                    face_embedding = np.array(face_obj['embedding'])
+                    face_embeddings.append(face_embedding)
 
+                    facial_area = face_obj['facial_area']
+                    
+                    # Extract coordinates from facial_area
+                    left = facial_area['x']
+                    top = facial_area['y']
+                    right = left + facial_area['w']
+                    bottom = top + facial_area['h']
 
-            cursor.close()
-            conn.close()
-
-        except Error as e:
-            print(f"Error accessing database: {e}")
-
-        print(f"Known face names: {known_face_names}")
-        print(f"Known face embeddings: {known_face_encodings}")
-        print('---------------------------------')
-        print(f'lenght of embeddings: {len(known_face_encodings)}')
-        print(f'lenght of one embedding: {len(known_face_encodings[0])}')
-        print('---------------------------------')
-        
-        return known_face_encodings, known_face_names
-
-if __name__ == '__main__':
-    import sys
-    app = QApplication(sys.argv)
-    window = MyMainWindow()
-    window.show()
-    sys.exit(app.exec_())
+                    face_locations.append((top, right, bottom, left))
