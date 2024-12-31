@@ -45,18 +45,12 @@
 
 ## 📦 Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/multi-model-face-recognition.git
-cd multi-model-face-recognition
-```
-
-2. Install required packages:
+1. Clone the repository and install required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Set Docker Image
+2. Set Docker Image
 ```docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=my-secret-pw -e MYSQL_DATABASE=images_db -e MYSQL_USER=my_user -e MYSQL_PASSWORD=my_password -p 3306:3306 -d mysql:latest```
 
 
