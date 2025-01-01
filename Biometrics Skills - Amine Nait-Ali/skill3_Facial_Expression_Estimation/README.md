@@ -1,5 +1,5 @@
 <div align="center">
-  <h1><strong> 👤Biometrics Skill 2: Face Recognition for Identification </strong></h1>
+  <h1><strong> 👤Biometrics Skill 3: Facial Expression Estimation </strong></h1>
   
   https://github.com/user-attachments/assets/52b92302-bcdb-403b-9580-960e7f4ee091
 </div>
