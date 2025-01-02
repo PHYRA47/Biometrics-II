@@ -1,7 +1,7 @@
 <div align="center">
   <h1><strong> 👤Biometrics Skill 3: Facial Expression Estimation </strong></h1>
   
-  https://github.com/user-attachments/assets/52b92302-bcdb-403b-9580-960e7f4ee091
+  https://github.com/user-attachments/assets/b72d2365-85bd-4b32-98ab-815cec5f8034
 </div>
 
 This repository contains a Python-based GUI application for real-time and image-based face emotion recognition, as part of the Biometrics II course assignment.
