@@ -4,114 +4,84 @@
   https://github.com/user-attachments/assets/52b92302-bcdb-403b-9580-960e7f4ee091
 </div>
 
+This repository contains a Python-based GUI application for real-time and image-based face emotion recognition, as part of the Biometrics II course assignment.
+
 ## ✨ Key Features
 
-- 🔄 **Multiple Recognition Models**:
-  - Face Recognition
-  - Dlib
-  - Facenet
-  - VGG-Face
-  - Easy to extend with more models!
+- 🧠 **Multiple Emotion Recognition Models**: custome `MobileNetV2` and  Sequential CNN models, and easy integration of additional models for enhanced flexibility.
 
-- 🖥️ **Multiple Recognition Modes**:
-  - 📸 Image-to-Image Comparison
-  - 📹 Capture and Recognize
-  - 🎥 Real-time Webcam Recognition
-  - 👥 Face Enrollment System
+- 🖼️ **Multiple Recognition Modes**: Upload and analyze images for emotion detection, use real-time webcam feed for live emotion recognition, and process multiple faces in a single frame.
 
-- 💾 **Database Integration**:
-  - MySQL backend for storing face data
-  - Secure image storage and retrieval
-  - Easy enrollment management
+- 🎨 **Emotion Visualization**: Annotated faces with emotion labels and color-coded bounding boxes.
 
-- 🎨 **Modern User Interface**:
-  - Clean and intuitive PyQt5-based GUI
-  - Tab-based navigation
+- 🖥️ **Modern User Interface**: Clean and intuitive PyQt5-based GUI with tabbed navigation for switching between image upload and webcam modes.
 
-## 🛠️ Prerequisites
+## 🔍 How It Works & 🎛️ Technical Details
 
-- Python 3.6+
-- MySQL Server
-- Required Python packages:
-  ```
-  opencv-python
-  numpy
-  tensorflow
-  face_recognition
-  deepface
-  PyQt5
-  mysql-connector-python
-  ```
+The system uses a combination of advanced techniques and tools to deliver accurate and efficient emotion recognition:
 
-## 📦 Installation
+- 🎯 **Face Detection**:  
+  Utilizes OpenCV's Haar Cascade Classifier for robust and reliable face detection in images and video streams.
 
-1. Clone the repository and install required packages:
+- 🧠 **Emotion Classification**:  
+  Employs deep learning models for precise emotion classification:  
+  - `MobileNetV2`: A pre-trained model fine-tuned specifically for emotion recognition.  
+  - `Sequential CNN`: A custom CNN model trained on emotion datasets for lightweight and efficient performance.  
+
+- 🎭 **Emotion Categories**:  
+  Detects and classifies emotions into seven categories:  
+  Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral.  
+
+- 🎨 **Image Processing & Annotation**:  
+  Leverages OpenCV for image processing, face annotation, and visualization of results with color-coded bounding boxes and labels.  
+
+- 🖥️ **Graphical Interface**:  
+  Built with PyQt5, providing a clean, intuitive, and user-friendly GUI for seamless interaction and navigation. 
+
+## 📝 Requirements
+
+To run this project, ensure you have the following installed:
+
+- **Python 3.9+**  
+- **OpenCV**: For image processing and face detection.  
+- **TensorFlow==2.10**: For loading and using deep learning models.  
+- **PyQt5**: For the graphical user interface.  
+- **NumPy==1.26**: For numerical operations and array handling.  
+
+Install the required dependencies using pip:
+
+```bash
+pip install opencv-python tensorflow==2.10 pyqt5 numpy<2
+```
+Alternatively:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Set Docker Image
-```docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=my-secret-pw -e MYSQL_DATABASE=images_db -e MYSQL_USER=my_user -e MYSQL_PASSWORD=my_password -p 3306:3306 -d mysql:latest```
-
-
-3. Set up MySQL database:
-```sql
-CREATE DATABASE images_db;
-CREATE TABLE images_store (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    image_name VARCHAR(255),
-    image_column LONGBLOB
-);
+## 📂 **Project Structure**
 ```
-
-4. Configure database connection in `config.py`:
-```python
-db_config = {
-    "host": "localhost",
-    "user": "your_username",
-    "password": "your_password",
-    "database": "images_db",
-    "port": 3306
-}
+assets/
+models/
+├── mobilenetv2/
+│ ├── mobilenetv2_history.npz       # Training history for MobileNetV2
+│ ├── mobilenetv2.h5                # MobileNetV2 model weights
+│ └── mobilenetv2.keras
+├── sequentialCNN/
+│ └── sequentialCNN.h5
+scripts/
+├── evaluate_mobilenetv2.ipynb      # Notebook for evaluating MobileNetV2
+├── evaluate_sequentialCNN.ipynb    # Notebook for evaluating Sequential CNN
+├── preprocess.py                   # Script for preprocessing data
+├── training.py                     # Script for training models
+├── webcam_mobilenetv2.py           # Webcam implementation for MobileNetV2
+└── webcam_sequentialCNN.py         # Webcam implementation for Sequential CNN
+src/
+├── EmotionRecognizer.py
+├── FERTab.py
+├── MainWindow.py
+├── complete_main.py
+└── main.py                         # Entry for the application 
+README.md
+requirements.txt
 ```
-
-## 🚀 Usage
-
-1. Start the application:
-```bash
-python main.py
-```
-
-2. **Image Recognition Mode** 📸:
-   - Select your preferred model
-   - Upload an image
-   - Click "Recognize Faces"
-   - View results and similarity scores
-
-3. **Capture and Recognize Mode** 📷:
-   - Start the camera
-   - Capture an image
-   - View real-time recognition results
-   - Check CMC curve for accuracy analysis
-
-4. **Real-time Recognition Mode** 🎥:
-   - Start the webcam
-   - View real-time face recognition results
-   - Switch between different models
-
-5. **Face Enrollment** 👤:
-   - Upload a face image
-   - Enter the person's name
-   - Manage enrolled faces through the interface
-
-## 🔍 Technical Architecture
-
-- 🎯 **Face Detection**: OpenCV Haar Cascade Classifier
-- 🧠 **Feature Extraction**: Multiple deep learning models
-- 📊 **Similarity Metrics**:
-  - Euclidean Distance
-  - Cosine Similarity
-- 💾 **Storage**: MySQL database for face data
-- 🖼️ **Image Processing**: OpenCV and NumPy
-- 🎨 **GUI Framework**: PyQt5
-
