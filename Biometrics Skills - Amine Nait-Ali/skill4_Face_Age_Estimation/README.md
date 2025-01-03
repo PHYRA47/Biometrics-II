@@ -4,56 +4,45 @@
   https://github.com/user-attachments/assets/d5e2dfb3-a539-4d8d-95c3-977207a417cc
 </div>
 
-This repository contains a Python-based GUI application for real-time and image-based face emotion recognition, as part of the Biometrics II course assignment.
+This repository contains a Python-based GUI application for real-time and image-based age estimation, as part of the Biometrics II course assignment.
 
 ## ✨ Key Features
 
-- 🧠 **Multiple Emotion Recognition Models**: custome `MobileNetV2` and  Sequential CNN models, and easy integration of additional models for enhanced flexibility.
+- 🧠 **Multiple Age Estimation Models**: Custom `ResNet50` and `Custom CNN` models, with easy integration of additional models for enhanced flexibility.
 
-- 🖼️ **Multiple Recognition Modes**: Upload and analyze images for emotion detection, use real-time webcam feed for live emotion recognition, and process multiple faces in a single frame.
+- 🖼️ **Multiple Recognition Modes**: Upload and analyze images for age estimation, use real-time webcam feed for live age detection, and process multiple faces in a single frame.
 
-- 🎨 **Emotion Visualization**: Annotated faces with emotion labels and color-coded bounding boxes.
+- 🎨 **Age Visualization**: Annotated faces with age labels and bounding boxes.
 
 - 🖥️ **Modern User Interface**: Clean and intuitive PyQt5-based GUI with tabbed navigation for switching between image upload and webcam modes.
 
 ## 🔍 How It Works & 🎛️ Technical Details
 
-The system uses a combination of advanced techniques and tools to deliver accurate and efficient emotion recognition:
-
 - 🎯 **Face Detection**:  
   Utilizes OpenCV's Haar Cascade Classifier for robust and reliable face detection in images and video streams.
 
-- 🧠 **Emotion Classification**:  
-  Employs deep learning models for precise emotion classification:  
-  - `MobileNetV2`: A pre-trained model fine-tuned specifically for emotion recognition.  
-  - `Sequential CNN`: A custom CNN model trained on emotion datasets for lightweight and efficient performance.  
-
-- 🎭 **Emotion Categories**:  
-  Detects and classifies emotions into seven categories:  
-  Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral.  
+- 🧠 **Age Estimation Models**:  
+  Employs deep learning models trained on the `UTKFace` dataset for precise age prediction:  
+  - `ResNet50`: A pre-trained model fine-tuned specifically for age estimation.  
+  - `Custom CNN`: A lightweight custom CNN model.  
 
 - 🎨 **Image Processing & Annotation**:  
-  Leverages OpenCV for image processing, face annotation, and visualization of results with color-coded bounding boxes and labels.  
+  Leverages OpenCV for image processing, face annotation, and visualization of results with bounding boxes and age labels.  
 
 - 🖥️ **Graphical Interface**:  
-  Built with PyQt5, providing a clean, intuitive, and user-friendly GUI for seamless interaction and navigation. 
+  Built with PyQt5, providing a clean, intuitive, and user-friendly GUI for seamless interaction and navigation.  
 
 ## 📝 Requirements
 
 To run this project, ensure you have the following installed:
 
-- **Python 3.9+**  
+- **Python 3.10+**  
 - **OpenCV**: For image processing and face detection.  
-- **TensorFlow==2.10**: For loading and using deep learning models.  
+- **TensorFlow==2.18**: For loading and using deep learning models.  
 - **PyQt5**: For the graphical user interface.  
-- **NumPy==1.26**: For numerical operations and array handling.  
+- **NumPy**: For numerical operations and array handling.  
 
 Install the required dependencies using pip:
-
-```bash
-pip install opencv-python tensorflow==2.10 pyqt5 numpy<2
-```
-Alternatively:
 
 ```bash
 pip install -r requirements.txt
@@ -61,27 +50,21 @@ pip install -r requirements.txt
 
 ## 📂 **Project Structure**
 ```
-assets/
-models/
-├── mobilenetv2/
-│ ├── mobilenetv2_history.npz       # Training history for MobileNetV2
-│ ├── mobilenetv2.h5                # MobileNetV2 model weights
-│ └── mobilenetv2.keras
-├── sequentialCNN/
-│ └── sequentialCNN.h5
-scripts/
-├── evaluate_mobilenetv2.ipynb      # Notebook for evaluating MobileNetV2
-├── evaluate_sequentialCNN.ipynb    # Notebook for evaluating Sequential CNN
-├── preprocess.py                   # Script for preprocessing data
-├── training.py                     # Script for training models
-├── webcam_mobilenetv2.py           # Webcam implementation for MobileNetV2
-└── webcam_sequentialCNN.py         # Webcam implementation for Sequential CNN
-src/
-├── EmotionRecognizer.py
-├── FERTab.py
-├── MainWindow.py
-├── complete_main.py
-└── main.py                         # Entry for the application 
-README.md
-requirements.txt
+assets/                            # Folder for static assets (e.g., images, icons)
+models/                            # Folder containing pre-trained models
+├── age_gender_estimation/         # Age and gender estimation models
+│   ├── custom_CNN/                
+│   │   └── custom_CNN.keras       # Custom CNN model in Keras format
+│   └── custom_ResNet50/           
+│       └── custom_ResNet50.keras  # Custom ResNet50 model in Keras format
+scripts/                           
+├── training.ipynb                 # Script for training models
+└── webcam.py                      # Webcam implementation for Custom ResNet50
+src/                               # Source code for the application
+├── AgeEstimationTab.py            # Age estimation tab logic
+├── EmotionRecognitionTab.py       # Emotion recognition tab logic
+└── GenderEstimationTab.py         # Gender estimation tab logic     
+main.py                            # Main window logic and Entry point for the application
+README.md                          # Project documentation
+requirements.txt                   # File listing project dependencies
 ```
