@@ -22,7 +22,7 @@ This repository contains a Python-based GUI application for real-time and image-
   Utilizes OpenCV's Haar Cascade Classifier for robust and reliable face detection in images and video streams.
 
 - 🧠 **Age Estimation Models**:  
-  Employs deep learning models trained on the `UTKFace` dataset for precise age prediction:  
+  Employs deep learning models trained on the [`UTKFace`](https://www.kaggle.com/datasets/jangedoo/utkface-new) dataset for precise age prediction:  
   - `ResNet50`: A pre-trained model fine-tuned specifically for age estimation.  
   - `Custom CNN`: A lightweight custom CNN model.  
 
