@@ -1,7 +1,7 @@
 <div align="center">
   <h1><strong> 👤Biometrics Skill 4: Face Age Estimation </strong></h1>
   
-  https://github.com/user-attachments/assets/b72d2365-85bd-4b32-98ab-815cec5f8034
+  https://github.com/user-attachments/assets/d5e2dfb3-a539-4d8d-95c3-977207a417cc
 </div>
 
 This repository contains a Python-based GUI application for real-time and image-based face emotion recognition, as part of the Biometrics II course assignment.
