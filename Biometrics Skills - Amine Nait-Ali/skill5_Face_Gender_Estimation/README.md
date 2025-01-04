@@ -1,7 +1,7 @@
 <div align="center">
   <h1><strong> 👤Biometrics Skill 5: Face Gender Estimation </strong></h1>
 
-    https://github.com/user-attachments/assets/e36c9998-5bc5-495c-9011-1501b0662045
+  https://github.com/user-attachments/assets/e36c9998-5bc5-495c-9011-1501b0662045
 </div>
 
 This repository contains a Python-based GUI application for real-time and image-based gender estimation, developed as part of the Biometrics II course assignment. It builds on the previous age estimation task, utilizing the same dataset and models but focusing on gender classification.
