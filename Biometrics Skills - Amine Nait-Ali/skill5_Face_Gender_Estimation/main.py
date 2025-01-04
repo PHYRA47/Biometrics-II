@@ -17,8 +17,8 @@ class MainWindow(QMainWindow):
         # Create tab widget
         self.tabs = QTabWidget()
         # self.tabs.addTab(EmotionRecognitionTab(), "Face Emotion Recognition")
-        self.tabs.addTab(AgeEstimationTab(), "Age Estimation")
-        # self.tabs.addTab(GenderEstimationTab(), "Gender Estimation")
+        # self.tabs.addTab(AgeEstimationTab(), "Age Estimation")
+        self.tabs.addTab(GenderEstimationTab(), "Gender Estimation")
         
         self.setCentralWidget(self.tabs)
 

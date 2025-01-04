@@ -61,9 +61,7 @@ scripts/
 ├── training.ipynb                 # Script for training models
 └── webcam.py                      # Webcam implementation for Custom ResNet50
 src/                               # Source code for the application
-├── AgeEstimationTab.py            # Age estimation tab logic
-├── EmotionRecognitionTab.py       # Emotion recognition tab logic
-└── GenderEstimationTab.py         # Gender estimation tab logic     
+└── AgeEstimationTab.py            # Age estimation tab logic   
 main.py                            # Main window logic and Entry point for the application
 README.md                          # Project documentation
 requirements.txt                   # File listing project dependencies

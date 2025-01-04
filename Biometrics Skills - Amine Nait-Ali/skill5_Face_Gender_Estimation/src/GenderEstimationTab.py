@@ -45,14 +45,16 @@ class GenderEstimator:
             predictions = self.current_model.predict(processed_face, verbose=0)
             pred_gender = self.gender_dict[round(predictions[0][0][0])]  # Using only gender prediction
             
+            # Determine color based on gender
+            color = (255, 0, 255) if pred_gender == 'Female' else (255, 0, 0)  # Pink for Female, Blue for Male
+
             # Draw rectangle and label
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 85, 0), 1)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
             
             # Draw label background with transparency
             overlay = frame.copy()
-            cv2.rectangle(overlay, (x, y + h + 1), (x + w, y + h + 25), (255, 85, 0), cv2.FILLED)
+            cv2.rectangle(overlay, (x, y + h + 1), (x + w, y + h + 25), color, cv2.FILLED)
             frame = cv2.addWeighted(overlay, 0.5, frame, 0.5, 0)
-            
             # Add text
             cv2.putText(frame, f"Gender: {pred_gender}", (x + 6, y + h + 20), 
                        cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
