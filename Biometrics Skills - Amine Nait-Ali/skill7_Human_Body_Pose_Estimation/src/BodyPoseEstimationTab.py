@@ -270,7 +270,8 @@ class PoseEstimationVideoTab(QWidget):
         self.video_label = QLabel()
         self.video_label.setStyleSheet("QLabel { background-color: #f0f0f0; border: 1px solid #ddd; }")
         self.video_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.video_label, stretch=1)  # Allow the video label to expand
+        self.video_label.setFixedSize(800, 600)  # Set a fixed size for the video label
+        layout.addWidget(self.video_label, alignment=Qt.AlignCenter)  # Allow the video label to expand
         
         # Buttons
         button_layout = QHBoxLayout()
@@ -321,6 +322,8 @@ class PoseEstimationVideoTab(QWidget):
             h, w, ch = rgb_frame.shape
             bytes_per_line = ch * w
             qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            
+            # Scale the frame to fit the fixed size of the video label
             scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
                 self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.video_label.setPixmap(scaled_pixmap)
