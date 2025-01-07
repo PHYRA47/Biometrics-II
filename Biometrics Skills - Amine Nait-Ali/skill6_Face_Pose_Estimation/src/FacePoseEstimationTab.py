@@ -10,7 +10,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (QComboBox, QCheckBox, QFileDialog, QHBoxLayout, 
                            QLabel, QPushButton, QTabWidget, QVBoxLayout, QWidget)
 
-class PoseEstimator:
+class FacePoseEstimator:
     """Handles face pose estimation logic"""
     def __init__(self):
         self.face_module = mp.solutions.face_mesh
@@ -450,7 +450,7 @@ class FacePoseEstimationTab(QWidget):
     """Face Pose Estimation Tab with sub-tabs"""
     def __init__(self):
         super().__init__()
-        self.estimator = PoseEstimator()
+        self.estimator = FacePoseEstimator()
         self.init_ui()
 
     def init_ui(self):
